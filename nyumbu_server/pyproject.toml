@@ -1,0 +1,21 @@
+[project]
+name = "nyumbu_server"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [{ name = "trdthg", email = "trdthg47@gmail.com" }]
+dependencies = [
+    "libvirt-python>=10.4.0",
+    "flask>=3.0.3",
+    "flask-cors>=4.0.1",
+    "pyserde>=0.18.0",
+]
+requires-python = "==3.11.*"
+readme = "README.md"
+license = { text = "MIT" }
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.scripts]
+start = "python __main__.py"
