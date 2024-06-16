@@ -14,7 +14,7 @@ export default function WorkflowInfoPage(props: {}) {
         width: "80%",
       }}
     >
-      <Button onClick={() => { }}>{wf.data?.name}</Button>
+      <Button onClick={() => { }}>{wf.data?.name || "none"}</Button>
     </Box>
   );
 }

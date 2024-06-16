@@ -28,7 +28,7 @@ const router = createBrowserRouter([
     element: <WorkflowListPage />,
     children: [
       {
-        path: "/:name",
+        path: "/workflow/:name",
         element: <WorkflowInfoPage />,
       },
     ],

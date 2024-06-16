@@ -8,6 +8,8 @@ import os
 import time
 from typing import List
 
+import tomlkit
+
 from .job import Job, Status, update_jobs_status, work_jobs
 from .db import DB
 from .util import get_timestamp
@@ -15,192 +17,216 @@ from .vm import VM
 from .worker import Workder
 
 import pyautotest
-from serde import deserialize, serde
 
-@deserialize
-@dataclass
 class WfRunJobConfig:
-    name: str
+    path: str
+    status: Status
     children: List[WfRunJobConfig]
 
-    def __init__(self, name, children=[]):
-        self.name = name
+    def __init__(self, path: str, children: list[WfRunJobConfig] = [], status = Status.EMPTY):
+        self.path = path
         self.children = children
-serde(WfRunJobConfig)
+        self.status = status
 
+    def to_dict(self) -> dict:
+        return {
+            "path": self.path,
+            "status": self.status.value,
+            "children": [child.to_dict() for child in self.children]
+        }
 
-@deserialize
-@dataclass
+    def from_dict(config_dict: dict) -> 'WfRunJobConfig':
+        path = config_dict.get("path", "")
+        children = [WfRunJobConfig.from_dict(child_dict) for child_dict in config_dict.get("children", [])]
+        return WfRunJobConfig(path, children, config_dict.get("status", Status.EMPTY))
+
 class WfRunConfig:
     os_list: List[str]
     jobs: List[WfRunJobConfig]
 
-    def __init__(self, os_list: List[str], jobs: List[WfRunJobConfig]):
+    def __init__(self, os_list: List[str] = [], jobs: List[WfRunJobConfig] = []):
         self.os_list = os_list
         self.jobs = jobs
 
     @staticmethod
-    def deserialize_from_dict(config_dict: dict):
-        c = WfRunConfig([], [])
-        c.os_list = config_dict.get("os_list", [])
+    def from_json(json_str: str) -> 'WfRunConfig':
+        config_dict: dict = json.loads(json_str)
+        return WfRunConfig(os_list = config_dict.get("os_list", []), jobs= [WfRunJobConfig.from_dict(job_dict) for job_dict in config_dict.get("jobs", [])])
 
-        def _deserialize_job(job_dict: dict):
-            name = job_dict.get("name", "")
-            children = []
-            for child_dict in job_dict.get("children", {}):
-                children.append(_deserialize_job(child_dict))
-            return WfRunJobConfig(name, children)
-
-        for job_dict in config_dict.get("jobs"):
-            c.jobs.append(_deserialize_job(job_dict))
-        return c
-
-serde(WfRunConfig)
+    def to_dict(self) -> dict:
+        return {
+            "os_list": self.os_list,
+            "jobs": [job.to_dict() for job in self.jobs]
+        }
 
 class Workflow:
-    db: DB
+    _os_dir = "os"
+    _wf_dir = "workflows"
+    _job_dir = "jobs"
+    _runs_dir = "runs"
 
-    def __init__(self, base_dir: str = "nyumbu_workspace", db: DB = DB()):
-        self.db = db
-        self.base_dir = base_dir
-        self.os_dir = os.path.join(base_dir, "os")
-        self.wf_dir = os.path.join(base_dir, "workflows")
-        self.job_dir = os.path.join(base_dir, "jobs")
-        for dir in [self.base_dir, self.os_dir, self.wf_dir, self.job_dir]:
-            os.makedirs(dir, exist_ok=True)
-    def run(self, wf_name: str, wf_json_config_path: str, only_failed: bool = False):
-        config_dict = json.loads(open(wf_json_config_path, "r").read())
-        c = WfRunConfig.deserialize_from_dict(config_dict)
 
-        start_timestamp = get_timestamp()
-        self.db.use(wf_name)[str(start_timestamp)] = {}
+    def __init__(self, base_dir: str = "nyumbu_workspace"):
+        self._base_dir = base_dir
+        for dir in [self._os_dir, self._wf_dir, self._job_dir]:
+            os.makedirs(os.path.join(self._base_dir, dir), exist_ok=True)
 
-        for os_name in c.os_list:
+    def get_os_dir(self) -> str:
+        return os.path.join(self._base_dir, self._os_dir)
 
-            def _load_jobs(jobs_config: List[WfRunJobConfig]):
-                res = []
-                for job_config in jobs_config:
-                    file_path = f"{self.wf_dir}/{wf_name}/{job_config.name}.py"
-                    print(file_path)
-                    module_name = os.path.basename(file_path).replace(".py", "")
-                    spec = importlib.util.spec_from_file_location(
-                        module_name, file_path
-                    )
-                    module = importlib.util.module_from_spec(spec)
+    def get_wf_dir(self) -> str:
+        return os.path.join(self._base_dir, self._wf_dir)
 
-                    spec.loader.exec_module(module)
+    def job_dir(self) -> str:
+        return os.path.join(self._base_dir, self._job_dir)
 
-                    # 使用 `dir` 函数获取模块的所有属性
-                    attributes = dir(module)
+    def get_runs_dir(self, wf_name: str) -> str:
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir)
 
-                    # 遍历所有属性，找出所有以 "test_" 开头且为函数的属性
-                    test_functions = [
-                        getattr(module, attr)
-                        for attr in attributes
-                        if attr.startswith("test_")
-                        and inspect.isfunction(getattr(module, attr))
-                    ]
+    def get_wf_run_single_os_dir(self, wf_name: str, run_name: str, os_name: str) -> str:
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name)
 
-                    # 现在， `test_functions` 是一个函数的列表，你可以像正常的函数一样调用这些函数
-                    for function in test_functions:
-                        res.append(
-                            Job(
-                                job_config.name,
-                                function,
-                                _load_jobs(job_config.children),
-                            )
-                        )
-                        break
+    def get_wf_run_single_os_status_file(self, wf_name: str, run_name: str, os_name: str) -> str:
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name, "status")
 
-                return res
+    def get_wf_run_single_os_result_file(self, wf_name: str, run_name: str, os_name: str) -> str:
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name, "config.result.json")
 
-            jobs = _load_jobs(c.jobs)
+    def get_wf_run_single_os_job_dir(self, wf_name: str, run_name: str, os_name: str, job_name: str) -> str:
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name, job_name)
 
-            if only_failed:
-                results = self.load_result(wf_name, os_name)
-                print("loaded results")
-                print(results)
-                update_jobs_status(jobs, results)
+    def get_wf_run_all_os_status_file(self, wf_name: str, run_name: str) -> str:
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, "status")
 
-            try:
+    def get_job_file(self, py_filepath_without_ext) -> str:
+        return os.path.join(self._base_dir, self._job_dir, py_filepath_without_ext)
 
-                os_dir = os.path.join(self.os_dir, os_name)
-                domain_xml_str = open(f"{os_dir}/domain.xml", "r").read()
+    def get_single_os_dir(self, os_name: str) -> str:
+        return os.path.join(self._base_dir, self._os_dir, os_name)
 
-                vm = VM(os_name, domain_xml_str)
-                vm.start()
-                d = pyautotest.Driver(open(f"{os_dir}/pyautotest.toml", "r").read())
+    def get_single_os_domain_xml(self, os_name: str) -> str:
+        return os.path.join(self._base_dir, self._os_dir, os_name, "domain.xml")
 
-                time.sleep(5)
-                w = Workder(wf_name, vm, d, jobs)
-                w.run()
+    def get_single_os_toml(self, os_name: str) -> str:
+        return os.path.join(self._base_dir, self._os_dir, os_name, "pyautotest.toml")
 
-                print("*" * 100)
-                print("jobs: ")
-                print(w)
-                print("*" * 100)
-
-                d.stop()
-                vm.stop()
-            except Exception as e:
-                print(f"{wf_name} - {os_name} - run failed")
-                print(e)
-
-            self.save_result(wf_name, start_timestamp, os_name, w.jobs)
-            print("*" * 100)
-
-    # FIX: hahaha~~~
-    def load_result(self, wf_name: str, os_name: str):
-
-        def _deserialize_dict(data: dict[str, dict]) -> dict[str, Status]:
-            res = {}
-
-            def _deserialize_job(job_map: dict[str, dict]):
-                print("job_map", job_map)
-                for name, info in job_map.items():
-                    res[name] = info.get("status", Status.EMPTY)
-                    for child in info.get("children", {}):
-                        _deserialize_job(child)
-
-            _deserialize_job(data)
-            return res
-
-        def _load_latest_workflow() -> dict[str, Status]:
-            time_list = [int(i) for i in self.db.use(wf_name).keys()]
-            if len(time_list) == 0:
-                return {}
-
-            time_list.sort()
-            max_timestamp = str(time_list[-1])
-            print("load", wf_name, max_timestamp)
-            print(self.db.use(wf_name).get(max_timestamp).get(os_name))
-            return _deserialize_dict(
-                self.db.use(wf_name).get(max_timestamp, {}).get(os_name, {})
+    def get_wf_config_file(self, wf_name: str) -> str:
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, "config.json")
+    
+    def _lode_job_tree_with_func(self, jobs_config: List[WfRunJobConfig]):
+        res = []
+        for job_config in jobs_config:
+            file_path = self.get_job_file(job_config.path)
+            module_name = os.path.basename(file_path).replace(".py", "")
+            spec = importlib.util.spec_from_file_location(
+                module_name, file_path
             )
+            module = importlib.util.module_from_spec(spec)
 
-        results = _load_latest_workflow()
-        return results
+            spec.loader.exec_module(module)
 
-    def save_result(
-        self, wf_name: str, start_timestamp: int, os_name: str, jobs: List[Job]
-    ):
-        def serialize_dict():
-            res = {}
+            attributes = dir(module)
 
-            def _serialize_job(job: Job):
-                res[job.name] = job.serialize_dict()
-                for child in job.children:
-                    _serialize_job(child)
-                return True
+            # find main(pyautotest.Driver) as entry
+            for attr in attributes:
+                if attr == "main" and inspect.isfunction(getattr(module, attr)):
+                    test_function = getattr(module, attr)
+                    res.append(
+                        Job(
+                            job_config.path,
+                            test_function,
+                            self._lode_job_tree_with_func(job_config.children),
+                        )
+                    )
+                    break
 
-            work_jobs(jobs, _serialize_job)
-            return res
+        return res
 
-        def serialize_str(self):
-            return json.dumps(self.serialize_dict())
+    def _run_single_os(self, wf_name: str, run_name: str, os_name: str, jobs: List[WfRunJobConfig], run_dry: bool = False):
+        run_os_status = Status.EMPTY
 
-        self.db.use(wf_name)[str(start_timestamp)][os_name] = serialize_dict()
-        print("save")
-        print(self.db.use(wf_name))
-        self.db.save()
+        vm = None
 
+        try:
+            print("os: ", os_name)
+            domain_xml_str = open(self.get_single_os_domain_xml(os_name), "r").read()
+            vm = VM(domain_xml_str)
+            vm.start()
+
+            print("before try")
+            try:
+                print("try")
+                toml_config_path = self.get_single_os_toml(os_name)
+                w = Workder(wf_name, toml_config_path, self.get_wf_run_single_os_dir(), vm, jobs)
+                print("worker new")
+
+                if not run_dry:
+                    print("try run")
+                    try:
+                        w.run()
+                        jobs = w.jobs
+                    except:
+                        pass
+                vm.stop()
+                print("try done")
+            except Exception as e:
+                run_os_status = Status.FAIL
+
+        except Exception as e:
+            print(e)
+            run_os_status = Status.FAIL
+
+
+        self.save_run_single_os(wf_name, run_name, os_name, jobs, run_os_status)
+
+
+    def _run_all_os(self, wf_name: str, run_name: str, os_list: List[str], jobs: List[Job], run_dry: bool = False):
+        # run all
+        for os_name in os_list:
+
+            # create run_os_dir
+            run_os_dir = self.get_wf_run_single_os_dir(wf_name, run_name, os_name)
+            if not os.path.exists(run_os_dir):
+                os.makedirs(run_os_dir)
+
+            self._run_single_os(wf_name, run_name, os_name, jobs, run_dry)
+
+        # save last_result
+        any_failed = False
+        for os_name in os_list:
+            try:
+                run_os_status = Status(open(self.get_wf_run_single_os_status_file(wf_name, run_name, os_name), "r").read())
+            except:
+                run_os_status = Status.FAIL
+
+            if run_os_status == Status.FAIL:
+                any_failed = True
+
+        self.save_run_all_os(wf_name, run_name, Status.PASS if not any_failed else Status.FAIL)
+
+    def get_wf_config(self, wf_name: str) -> WfRunConfig:
+        return WfRunConfig.from_json(open(self.get_wf_config_file(wf_name), "r").read())
+
+    def run(self, wf_name: str, run_dry: bool = False):
+        c = self.get_wf_config(wf_name)
+
+        run_name = str(get_timestamp())
+        jobs = self._lode_job_tree_with_func(c.jobs)
+        self._run_all_os(wf_name, run_name, c.os_list, jobs, False)
+
+    def run_failed(self, wf_name: str, os_name:str, run_name: str):
+        c = WfRunConfig.from_json(open(self.get_wf_run_single_os_result_file(wf_name, os_name, run_name), "r").read())
+        jobs = self._lode_job_tree_with_func(c.jobs)
+        self._run_all_os(wf_name, run_name, c.os_list, jobs, True)
+
+    def save_run_single_os(self, wf_name: str, run_name: str, os_name: str, jobs: List[Job], status: Status):
+        run_os_result_file = self.get_wf_run_single_os_result_file(wf_name, run_name, os_name)
+        c = WfRunConfig([os_name], jobs)
+        open(run_os_result_file, "w").write(json.dumps(c.to_dict()))
+
+        run_os_status_file = self.get_wf_run_single_os_status_file(wf_name, run_name, os_name)
+        open(run_os_status_file, "w").write(status.value)
+
+    def save_run_all_os(self, wf_name: str, run_name: str, status: Status):
+        run_status_file = self.get_wf_run_all_os_status_file(wf_name, run_name)
+        open(run_status_file, "w").write(status.value)

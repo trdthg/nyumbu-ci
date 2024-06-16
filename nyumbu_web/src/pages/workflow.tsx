@@ -1,18 +1,21 @@
 import { Box, Button, Spinner } from "@primer/react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import { WorkflowAPI, WorkflowList } from "../api";
 
 import styles from "./workflow.module.css";
 
 function WorkFlowList(props: { data: WorkflowList }) {
+  const nav = useNavigate()
+
   return (
-    <Box className={"workflow-list"}>
+    <Box className={styles["workflow-list"]}>
       {props.data.list.map((wf, i) => (
         <div
           key={i}
           className={styles.workflow}
           onClick={() => {
-            useNavigate()(`/workflow/${wf}`);
+            console.log("clicked", wf);
+            nav(`/workflow/${wf}`);
           }}
         >
           <div>

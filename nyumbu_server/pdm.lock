@@ -5,18 +5,7 @@
 groups = ["default"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:6acda69b1ba31da94e5a3aa97b6c65a6299bdaf1536a5cf0192f993d23899dbf"
-
-[[package]]
-name = "beartype"
-version = "0.18.5"
-requires_python = ">=3.8.0"
-summary = "Unbearably fast runtime type checking in pure Python."
-groups = ["default"]
-files = [
-    {file = "beartype-0.18.5-py3-none-any.whl", hash = "sha256:5301a14f2a9a5540fe47ec6d34d758e9cd8331d36c4760fc7a5499ab86310089"},
-    {file = "beartype-0.18.5.tar.gz", hash = "sha256:264ddc2f1da9ec94ff639141fbe33d22e12a9f75aa863b83b7046ffff1381927"},
-]
+content_hash = "sha256:bea72446f33424e452227f76601e961b2ca2a07d0d0aa467ae37f3df3d37da2d"
 
 [[package]]
 name = "blinker"
@@ -27,17 +16,6 @@ groups = ["default"]
 files = [
     {file = "blinker-1.8.2-py3-none-any.whl", hash = "sha256:1779309f71bf239144b9399d06ae925637cf6634cf6bd131104184531bf67c01"},
     {file = "blinker-1.8.2.tar.gz", hash = "sha256:8f77b09d3bf7c795e969e9486f39c2c5e9c39d4ee07424be2bc594ece9642d83"},
-]
-
-[[package]]
-name = "casefy"
-version = "0.1.7"
-requires_python = ">=3.6"
-summary = "Utilities for string case conversion."
-groups = ["default"]
-files = [
-    {file = "casefy-0.1.7-py3-none-any.whl", hash = "sha256:ab05ff1c67f2a8e62d9f8986fa9a849416d61ac5413ec57d1f827b4f36589cf6"},
-    {file = "casefy-0.1.7.tar.gz", hash = "sha256:6accce985a64b9edb2a610a29ac489d78fac80e52ff8f2d137e294f2f92b8027"},
 ]
 
 [[package]]
@@ -153,72 +131,14 @@ files = [
 ]
 
 [[package]]
-name = "mypy-extensions"
-version = "1.0.0"
-requires_python = ">=3.5"
-summary = "Type system extensions for programs checked with the mypy type checker."
+name = "tomlkit"
+version = "0.12.5"
+requires_python = ">=3.7"
+summary = "Style preserving TOML library"
 groups = ["default"]
 files = [
-    {file = "mypy_extensions-1.0.0-py3-none-any.whl", hash = "sha256:4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"},
-    {file = "mypy_extensions-1.0.0.tar.gz", hash = "sha256:75dbf8955dc00442a438fc4d0666508a9a97b6bd41aa2f0ffe9d2f2725af0782"},
-]
-
-[[package]]
-name = "plum-dispatch"
-version = "2.2.2"
-requires_python = ">=3.8"
-summary = "Multiple dispatch in Python"
-groups = ["default"]
-dependencies = [
-    "beartype>=0.16.2",
-]
-files = [
-    {file = "plum_dispatch-2.2.2-py3-none-any.whl", hash = "sha256:d7ee415bd166ffa90eaa4b24d7c9dc7ca6f8875750586001e7c9baff706223bd"},
-    {file = "plum_dispatch-2.2.2.tar.gz", hash = "sha256:d5d180225c9fbf0277375bb558b649d97d0b651a91037bb7155cedbe9f52764b"},
-]
-
-[[package]]
-name = "pyserde"
-version = "0.18.0"
-requires_python = "<4.0.0,>=3.9.0"
-summary = "Yet another serialization library on top of dataclasses"
-groups = ["default"]
-dependencies = [
-    "beartype>=0.18.4",
-    "casefy",
-    "jinja2",
-    "plum-dispatch<2.3,>=2",
-    "typing-extensions>=4.1.0",
-    "typing-inspect>=0.4.0",
-]
-files = [
-    {file = "pyserde-0.18.0-py3-none-any.whl", hash = "sha256:6a05d8582888b150f6409371a07342f60d026fe770f8639c6c95ef561b5aa13e"},
-    {file = "pyserde-0.18.0.tar.gz", hash = "sha256:033d37bfba5559fd5342548076c0b86f598d7dc65f5a0896fdff690d3cfa335c"},
-]
-
-[[package]]
-name = "typing-extensions"
-version = "4.12.1"
-requires_python = ">=3.8"
-summary = "Backported and Experimental Type Hints for Python 3.8+"
-groups = ["default"]
-files = [
-    {file = "typing_extensions-4.12.1-py3-none-any.whl", hash = "sha256:6024b58b69089e5a89c347397254e35f1bf02a907728ec7fee9bf0fe837d203a"},
-    {file = "typing_extensions-4.12.1.tar.gz", hash = "sha256:915f5e35ff76f56588223f15fdd5938f9a1cf9195c0de25130c627e4d597f6d1"},
-]
-
-[[package]]
-name = "typing-inspect"
-version = "0.9.0"
-summary = "Runtime inspection utilities for typing module."
-groups = ["default"]
-dependencies = [
-    "mypy-extensions>=0.3.0",
-    "typing-extensions>=3.7.4",
-]
-files = [
-    {file = "typing_inspect-0.9.0-py3-none-any.whl", hash = "sha256:9ee6fc59062311ef8547596ab6b955e1b8aa46242d854bfc78f4f6b0eff35f9f"},
-    {file = "typing_inspect-0.9.0.tar.gz", hash = "sha256:b23fc42ff6f6ef6954e4852c1fb512cdd18dbea03134f91f856a95ccc9461f78"},
+    {file = "tomlkit-0.12.5-py3-none-any.whl", hash = "sha256:af914f5a9c59ed9d0762c7b64d3b5d5df007448eb9cd2edc8a46b1eafead172f"},
+    {file = "tomlkit-0.12.5.tar.gz", hash = "sha256:eef34fba39834d4d6b73c9ba7f3e4d1c417a4e56f89a7e96e090dd0d24b8fb3c"},
 ]
 
 [[package]]
