@@ -45,52 +45,91 @@ export const useFetch = <T>(
   return { data, loading: isLoading, err: error, reload };
 };
 
+
+// 1
 export interface WorkflowList {
   list: string[];
 }
 
+// 2
 export interface WorkflowJob {
   name: string;
   status: string;
   children: WorkflowJob[];
 }
 
-export interface WorkflowInfo {
+export interface WorkflowConfig {
   name: string;
   os_list: string[];
-  runs: string[];
+  jobs: WorkflowJob[];
 }
 
-export interface RunWorkflowResponse {
-  // 运行工作流的响应结构
+// 3
+
+export interface RunResult {
+  status: string
+  run_name: string
+}
+export interface WorkflowRunList {
+  list: RunResult[]
 }
 
-export interface WorkflowStatus {
-  // 工作流状态的响应结构
+// 4
+export interface RunSingleOSResult {
+  os: string
+  status: string
 }
+export interface RunResultInfo {
+  list: RunSingleOSResult[]
+}
+
+// 5
+export type RunSingleOSResultConfig = WorkflowConfig
+
+// 6
+
+export interface FileTree {
+  type: "dit" | "file"
+  path: string
+  children: FileTree[]
+}
+export interface RunSingleOSResultInfo {
+  pyscript: string,
+  logs: FileTree[]
+}
+
 
 export class WorkflowAPI {
   static baseUrl: string;
 
-  static getAll(): FetchResult<WorkflowList> {
+  static getWorkflowList(): FetchResult<WorkflowList> {
     return useFetch(`${this.baseUrl}/workflows`, {});
   }
 
-  static getInfo(name: string): FetchResult<WorkflowInfo> {
-    return useFetch(`${this.baseUrl}/workflows/${name}/info`);
+  static getWorkflowConfig(wf_name: string): FetchResult<WorkflowConfig> {
+    return useFetch(`${this.baseUrl}/workflows/${wf_name}`);
   }
 
-  static run(
-    name: string,
-    runOnlyFailed: boolean = false,
-  ): FetchResult<RunWorkflowResponse> {
+  static getWorkflowRuns(wf_name: string): FetchResult<WorkflowRunList> {
+    return useFetch(`${this.baseUrl}/workflows/${wf_name}/runs`);
+  }
+
+  static getWorkflowRunAllResult(wf_name: string, run_name: string): FetchResult<RunSingleOSResult> {
+    return useFetch(`${this.baseUrl}/workflows/${wf_name}/runs/${run_name}`);
+  }
+
+  static getWorkflowRunSingleOSResultConfig(wf_name: string, run_name: string, os_name: string): FetchResult<RunSingleOSResultConfig> {
+    return useFetch(`${this.baseUrl}/workflows/${wf_name}/runs/${run_name}/${os_name}`);
+  }
+
+  static getWorkflowRunSingleOSLogs(wf_name: string, run_name: string, os_name: string, path: string): FetchResult<RunSingleOSResultInfo> {
+    return useFetch(`${this.baseUrl}/workflows/${wf_name}/runs/${run_name}/${os_name}/${path}`);
+  }
+
+  static run(wf_name: string): FetchResult<void> {
     return useFetch(
-      `${this.baseUrl}/workflows/${name}/run?runonlyfailed=${runOnlyFailed}`,
+      `${this.baseUrl}/workflows/${wf_name}/run`,
     );
-  }
-
-  static getWorkflowStatus(workflowName: string): FetchResult<WorkflowStatus> {
-    return useFetch(`${this.baseUrl}/workflows/${workflowName}/jobs`);
   }
 }
 

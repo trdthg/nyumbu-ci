@@ -29,7 +29,7 @@ function WorkFlowList(props: { data: WorkflowList }) {
 }
 
 export default function WorkflowListPage(props: {}) {
-  let workflows = WorkflowAPI.getAll();
+  let workflows = WorkflowAPI.getWorkflowList();
 
   return (
     <Box

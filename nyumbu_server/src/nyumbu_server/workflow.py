@@ -93,7 +93,7 @@ class Workflow:
         return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name, "config.result.json")
 
     def get_wf_run_single_os_job_dir(self, wf_name: str, run_name: str, os_name: str, job_name: str) -> str:
-        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name, job_name)
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name, str(abs(hash(job_name))))
 
     def get_wf_run_all_os_status_file(self, wf_name: str, run_name: str) -> str:
         return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, "status")
@@ -112,7 +112,7 @@ class Workflow:
 
     def get_wf_config_file(self, wf_name: str) -> str:
         return os.path.join(self._base_dir, self._wf_dir, wf_name, "config.json")
-    
+
     def _lode_job_tree_with_func(self, jobs_config: List[WfRunJobConfig]):
         res = []
         for job_config in jobs_config:

@@ -122,6 +122,8 @@ def get_file_tree(base_dir, _relative_dir):
     full_dir = os.path.join(base_dir, _relative_dir)
     print(base_dir)
     print(_relative_dir)
+    if not os.path.exists(full_dir):
+        return []
     for f in os.listdir(full_dir):
         path = os.path.join(full_dir, _relative_dir, f)
         relative_dir = os.path.join(_relative_dir, f)
