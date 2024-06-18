@@ -10,6 +10,7 @@ export interface FetchResult<T> {
 export const useFetch = <T>(
   url: string,
   options?: RequestInit,
+  externalReloadKey: number = 0,
 ): FetchResult<T> => {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +41,7 @@ export const useFetch = <T>(
       }
     };
     fetchData();
-  }, [reloadKey]);
+  }, [reloadKey, externalReloadKey]);
 
   return { data, loading: isLoading, err: error, reload };
 };
@@ -98,41 +99,74 @@ export interface RunSingleOSResultInfo {
   logs: FileTree[]
 }
 
+export const useWorkflowList = (): FetchResult<WorkflowList> => {
+  const [url, setUrl] = useState(`${baseUrl}/workflows`);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    setUrl(`${baseUrl}/workflows`);
+    setReloadKey(reloadKey + 1);
+  }, []);
+  return useFetch(url, undefined, reloadKey);
+};
 
-export class WorkflowAPI {
-  static baseUrl: string;
+export const useWorkflowConfig = (wf_name: string): FetchResult<WorkflowConfig> => {
+  const [url, setUrl] = useState(`${baseUrl}/workflows/${wf_name}`);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    setUrl(`${baseUrl}/workflows/${wf_name}`);
+    setReloadKey(reloadKey + 1);
+  }, [wf_name]);
+  return useFetch(url, undefined, reloadKey);
+};
 
-  static getWorkflowList(): FetchResult<WorkflowList> {
-    return useFetch(`${this.baseUrl}/workflows`, {});
-  }
+export const useWorkflowRuns = (wf_name: string): FetchResult<WorkflowRunList> => {
+  const [url, setUrl] = useState(`${baseUrl}/workflows/${wf_name}/runs`);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    setUrl(`${baseUrl}/workflows/${wf_name}/runs`);
+    setReloadKey(reloadKey + 1);
+  }, [wf_name]);
+  return useFetch(url, undefined, reloadKey);
+};
 
-  static getWorkflowConfig(wf_name: string): FetchResult<WorkflowConfig> {
-    return useFetch(`${this.baseUrl}/workflows/${wf_name}`);
-  }
+export const useWorkflowRunAllResult = (wf_name: string, run_name: string): FetchResult<RunSingleOSResult> => {
+  const [url, setUrl] = useState(`${baseUrl}/workflows/${wf_name}/runs/${run_name}`);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    setUrl(`${baseUrl}/workflows/${wf_name}/runs/${run_name}`);
+    setReloadKey(reloadKey + 1);
+  }, [wf_name, run_name]);
+  return useFetch(url, undefined, reloadKey);
+};
 
-  static getWorkflowRuns(wf_name: string): FetchResult<WorkflowRunList> {
-    return useFetch(`${this.baseUrl}/workflows/${wf_name}/runs`);
-  }
+export const useWorkflowRunSingleOSResultConfig = (wf_name: string, run_name: string, os_name: string): FetchResult<RunSingleOSResultConfig> => {
+  const [url, setUrl] = useState(`${baseUrl}/workflows/${wf_name}/runs/${run_name}/${os_name}`);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    setUrl(`${baseUrl}/workflows/${wf_name}/runs/${run_name}/${os_name}`);
+    setReloadKey(reloadKey + 1);
+  }, [wf_name, run_name, os_name]);
+  return useFetch(url, undefined, reloadKey);
+};
 
-  static getWorkflowRunAllResult(wf_name: string, run_name: string): FetchResult<RunSingleOSResult> {
-    return useFetch(`${this.baseUrl}/workflows/${wf_name}/runs/${run_name}`);
-  }
+export const useWorkflowRunSingleOSLogs = (wf_name: string, run_name: string, os_name: string, path: string): FetchResult<RunSingleOSResultInfo> => {
+  const [url, setUrl] = useState(`${baseUrl}/workflows/${wf_name}/runs/${run_name}/${os_name}/${path}`);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    setUrl(`${baseUrl}/workflows/${wf_name}/runs/${run_name}/${os_name}/${path}`);
+    setReloadKey(reloadKey + 1);
+  }, [wf_name, run_name, os_name, path]);
+  return useFetch(url, undefined, reloadKey);
+};
 
-  static getWorkflowRunSingleOSResultConfig(wf_name: string, run_name: string, os_name: string): FetchResult<RunSingleOSResultConfig> {
-    return useFetch(`${this.baseUrl}/workflows/${wf_name}/runs/${run_name}/${os_name}`);
-  }
+export const useRun = (wf_name: string): FetchResult<void> => {
+  const [url, setUrl] = useState(`${baseUrl}/workflows/${wf_name}/run`);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    setUrl(`${baseUrl}/workflows/${wf_name}/run`);
+    setReloadKey(reloadKey + 1);
+  }, [wf_name]);
+  return useFetch(url, undefined, reloadKey);
+};
 
-  static getWorkflowRunSingleOSLogs(wf_name: string, run_name: string, os_name: string, path: string): FetchResult<RunSingleOSResultInfo> {
-    return useFetch(`${this.baseUrl}/workflows/${wf_name}/runs/${run_name}/${os_name}/${path}`);
-  }
-
-  static run(wf_name: string): FetchResult<void> {
-    return useFetch(
-      `${this.baseUrl}/workflows/${wf_name}/run`,
-    );
-  }
-}
-
-WorkflowAPI.baseUrl = "http://localhost:5000";
-
-export default WorkflowAPI;
+const baseUrl = "http://localhost:5000";

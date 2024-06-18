@@ -1,0 +1,32 @@
+@use '@carbon/colors';
+@use '@carbon/layout';
+@use '@carbon/styles/scss/breakpoint';
+
+.WorkflowColumn {
+    background-color: colors.$gray-20;
+}
+
+.EnvironmentColumn {
+    background-color: colors.$gray-10;
+}
+
+.Column {
+    /* applies styles inside mixin on md breakpoint or below, like max-width */
+      @include breakpoint.breakpoint-up('lg') {
+    height: 100vh;
+      }
+}
+
+.RunInfo {
+    background-color: colors.$blue-90;
+    height: layout.$container-05 * 2;
+    color: colors.$white;
+}
+
+.Padding > div {
+    padding: layout.$spacing-01;
+}
+
+.Active {
+    background-color: colors.$white;
+}   
