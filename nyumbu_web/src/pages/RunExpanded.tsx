@@ -36,27 +36,32 @@ function RunLog(props: {
     );
 
     return (
-        <Accordion size="lg">
-            <AccordionItem title={'Commands'} className={style.FullWidth}>
-                <Layer level={1}>
-                    <CodeSnippet type="multi">
-                        {log.data?.pyscript ?? 'No commands'}
-                    </CodeSnippet>
-                </Layer>
-            </AccordionItem>
-            {(log.data?.logs ?? []).map((log, i) => (
+        <Section level={5}>
+            <Accordion size="lg">
                 <AccordionItem
-                    key={i}
-                    title={log.name}
+                    title={<Heading>Commands</Heading>}
                     className={style.FullWidth}
-                    open
                 >
                     <Layer level={1}>
-                        <StaticResources url={log.path} />
+                        <CodeSnippet type="multi">
+                            {log.data?.pyscript ?? 'No commands'}
+                        </CodeSnippet>
                     </Layer>
                 </AccordionItem>
-            ))}
-        </Accordion>
+                {(log.data?.logs ?? []).map((log, i) => (
+                    <AccordionItem
+                        key={i}
+                        title={<Heading>{log.name}</Heading>}
+                        className={style.FullWidth}
+                        open
+                    >
+                        <Layer level={1}>
+                            <StaticResources url={log.path} />
+                        </Layer>
+                    </AccordionItem>
+                ))}
+            </Accordion>
+        </Section>
     );
 }
 

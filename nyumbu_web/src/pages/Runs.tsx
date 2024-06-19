@@ -33,7 +33,7 @@ export const statusIcon = (result: string): React.ComponentType<{}> => {
     }
 };
 
-export default function RunsList() {
+export default function RunsList(props: { editing: boolean }) {
     const nav = useNavigate();
     const params = useParams<{ name: string; run: string }>();
     const workflows = useWorkflowRuns(params.name!);
@@ -55,16 +55,18 @@ export default function RunsList() {
                     className={params.run === wf.run_name ? style.Active : ''}
                     renderIcon={statusIcon(wf.status)}
                     action={
-                        <Button
-                            hasIconOnly
-                            iconDescription="Remove"
-                            kind="danger"
-                            renderIcon={TrashCan}
-                            tooltipPosition="left"
-                            onClick={() =>
-                                removeRunEntry(params.name!, wf.run_name)
-                            }
-                        />
+                        props.editing && (
+                            <Button
+                                hasIconOnly
+                                iconDescription="Remove"
+                                kind="danger--tertiary"
+                                renderIcon={TrashCan}
+                                tooltipPosition="left"
+                                onClick={() =>
+                                    removeRunEntry(params.name!, wf.run_name)
+                                }
+                            />
+                        )
                     }
                 >
                     {wf.run_name}
