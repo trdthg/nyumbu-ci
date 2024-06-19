@@ -5,8 +5,9 @@ import time
 from typing import List
 
 import tomlkit
-from .job import Job, Status, work_jobs
+from .job import Job, Status, walk_jobs
 from .vm import VM
+from .util import fixup_job_path
 
 import pyautotest
 
@@ -19,10 +20,13 @@ class Workder:
 
         name_map = {}
 
+        print("worker init 1")
 
         config_toml_str = open(toml_config_path, "r").read()
         self.config_toml = tomlkit.loads(config_toml_str)
         self.run_os_dir = run_os_dir
+
+        print("worker init")
 
         def check_name_duplicate(job: Job):
             if name_map.get(job.path) != None:
@@ -31,7 +35,7 @@ class Workder:
                 name_map[job.path] = ""
             return True
 
-        work_jobs(jobs, check_name_duplicate)
+        walk_jobs(jobs, check_name_duplicate)
 
         self.jobs = jobs
 
@@ -59,6 +63,10 @@ class Workder:
         self._run(base_snapname, self.jobs, [])
 
     # 运行
+    def _run_(self, base_snapname: str, jobs: List[Job], _indexs: List[int]):
+
+        pass
+
     def _run(self, base_snapname: str, jobs: List[Job], _indexs: List[int]):
         for i, job in enumerate(jobs):
             indexs = copy.deepcopy(_indexs)
@@ -66,10 +74,7 @@ class Workder:
             indexs_str = ".".join(map(lambda x: str(x), indexs))
 
             next_snapname = job.path
-            print(
-                f"running case {indexs_str}: {job.path}({job.fn.__name__}), result: ",
-                end="",
-            )
+            print(f"running case {indexs_str}: {job.path}({job.fn.__name__})")
 
             if job.skip:
                 job.status = Status.SKIP
@@ -88,31 +93,50 @@ class Workder:
 
                     # FIXME: log_dir 不同快照如何分离日志
                     # FIXME: worker_run 是否只该负责一次脚本运行
-                    self.config_toml.add("log_dir", os.path.join(self.run_os_dir, job.path), hash(job.path))
+                    print(f"当前处理job {job.path}")
+                    self.config_toml.add("log_dir", os.path.join(self.run_os_dir, fixup_job_path(job.path)))
 
+                    print(f"启动 driver")
                     d = pyautotest.Driver(tomlkit.dumps(self.config_toml))
-                    job.fn(d)
+                    print(f"运行测试脚本")
+
+                    run_result = False
+                    try:
+                        job.fn(d)
+                        run_result = True
+                        print("运行成功")
+                    except Exception as e:
+                        run_result = False
+                        print("运行失败", e)
+                        pass
+                    print(f"停止 driver")
                     d.stop()
 
                     self.config_toml.remove("log_dir")
 
-                    job.status = Status.PASS
+                    job.status = Status.from_bool(run_result)
+
                     # 测试通过快照
+                    print(f"保存快照")
                     self.vm.save_snapshot(next_snapname)
-                    print("pass")
+
+                    if run_result:
+                        print("任务运行成功, 搜索子任务")
+                        try:
+                            self._run(next_snapname, job.children, indexs)
+                            print("子任务云运行成功")
+                        except Exception as e:
+                            print("子任务运行抛出异常", e)
+                            pass
+
                 else:
                     print("pass(skip)")
 
-                try:
-                    self._run(next_snapname, job.children, indexs)
-                except Exception as e:
-                    pass
-
             except Exception as e:
                 job.status = Status.FAIL
-                print("fail, reason:")
-                print(e)
+                print("任务运行失败", e)
                 # 测试失败快照
+                print(f'保存快照到 {next_snapname + "-failed"}')
                 self.vm.save_snapshot(next_snapname + "-failed")
                 continue
 

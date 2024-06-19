@@ -8,7 +8,7 @@ import time
 import tomlkit
 from typing import List
 
-from .src.nyumbu_server.job import Job, Status, update_jobs_status, work_jobs
+from .src.nyumbu_server.job import Job, Status, update_jobs_status, walk_jobs
 from .src.nyumbu_server.db import DB
 from .src.nyumbu_server.util import get_timestamp
 from .src.nyumbu_server.vm import VM
@@ -98,7 +98,7 @@ class Workflow:
             jobs = _load_jobs(c.jobs)
 
             if only_failed:
-                results = self.load_result(wf_name, os_name)
+                results = self.load_result_config(wf_name, os_name)
                 print("loaded results")
                 print(results)
                 update_jobs_status(jobs, results)
@@ -136,7 +136,7 @@ class Workflow:
             print("*" * 100)
 
     # FIX: hahaha~~~
-    def load_result(self, wf_name: str, os_name: str):
+    def load_result_config(self, wf_name: str, os_name: str):
 
         def _deserialize_dict(data: dict[str, dict]) -> dict[str, Status]:
             res = {}
@@ -144,7 +144,7 @@ class Workflow:
             def _deserialize_job(job_map: dict[str, dict]):
                 print("job_map", job_map)
                 for name, info in job_map.items():
-                    res[name] = info.get("status", Status.EMPTY)
+                    res[name] = info.get("status", Status.PENDING)
                     for child in info.get("children", {}):
                         _deserialize_job(child)
 
@@ -179,7 +179,7 @@ class Workflow:
                     _serialize_job(child)
                 return True
 
-            work_jobs(jobs, _serialize_job)
+            walk_jobs(jobs, _serialize_job)
             return res
 
         def serialize_str(self):

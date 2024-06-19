@@ -6,13 +6,19 @@ import pyautotest
 
 
 class Status(Enum):
-    EMPTY = "empty"
     PENDING = "pending"
     RUNNING = "running"
     PASS = "pass"
     FAIL = "fail"
     SKIP = "skip"
+    CANCEL = "cancel"
 
+    @staticmethod
+    def from_bool(v: bool) -> 'Status':
+        if v:
+            return Status.PASS
+        else:
+            return Status.FAIL
 
 class Job:
     path: str
@@ -31,14 +37,14 @@ class Job:
         self.path = path
         self.fn = case_fn
         self.children = children
-        self.status = Status.EMPTY
+        self.status = Status.PENDING
         self.skip = skip
 
 
-def work_jobs(jobs: List[Job], f: Callable[[Job], bool]):
+def walk_jobs(jobs: List[Job], f: Callable[[Job], bool]):
     for job in jobs:
         if f(job):
-            work_jobs(job.children, f)
+            walk_jobs(job.children, f)
 
 
 def update_jobs_status(jobs: List[Job], results: dict[str, Status]):
@@ -51,4 +57,4 @@ def update_jobs_status(jobs: List[Job], results: dict[str, Status]):
             job.status = status
             return True
 
-    work_jobs(jobs, _set_status)
+    walk_jobs(jobs, _set_status)

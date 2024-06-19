@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 import threading
 from typing import List
@@ -14,6 +15,8 @@ app = Flask(__name__, static_folder=base_dir, static_url_path="/static")
 CORS(app)
 
 mgr = Workflow(base_dir = base_dir)
+
+sys.path.append(str(Path(mgr._base_dir).resolve().absolute()))
 
 # - job
 #   - test1.py
@@ -50,25 +53,46 @@ mgr = Workflow(base_dir = base_dir)
 #         - ...
 @app.route("/workflows")
 def wf_list():
+    res = []
+    list_dir = os.listdir(mgr.get_wf_dir())
+    for path in list_dir:
+        if os.path.isdir(os.path.join(mgr.get_wf_dir(), path)):
+            res.append(path)
     return {
-        "list": os.listdir(mgr.get_wf_dir())
+        "list": res
     }
 
 @app.route("/workflows/<wf_name>")
 def wf_info(wf_name):
-    config_str = open(mgr.get_wf_config_file(wf_name), "r").read()
-    print(config_str)
-    c = WfRunConfig.from_json(config_str)
-    return {
-        "name": wf_name,
-        **c.to_dict(),
-    }
+    config_file_path = mgr.get_wf_config_file(wf_name)
+    if os.path.exists(config_file_path):
+        config_str = open(mgr.get_wf_config_file(wf_name), "r").read()
+        print(config_str)
+        c = WfRunConfig.from_json(config_str)
+        return {
+            "name": wf_name,
+            **c.to_dict(),
+        }
+    else:
+        c = WfRunConfig()
+        return {
+            "name": wf_name,
+            **c.to_dict(),
+            "msg": "you don't have config.json"
+        }
 
 @app.route("/workflows/<wf_name>/runs")
 def wf_runs(wf_name):
     res = []
-    for run_name in os.listdir(mgr.get_runs_dir(wf_name)):
-        status = "empty"
+    runs_dir = mgr.get_runs_dir(wf_name)
+    if os.path.exists(runs_dir):
+      runs_list = os.listdir(runs_dir)
+      runs_list.sort(reverse=True)
+    #   runs_list = runs_list[::-1]
+    else:
+      runs_list = []
+    for run_name in runs_list:
+        status = Status.PENDING.value
         try:
             status_file = mgr.get_wf_run_all_os_status_file(wf_name, run_name)
             status = open(status_file, "r").read()
@@ -82,6 +106,13 @@ def wf_runs(wf_name):
     return {
         "list": res
     }
+
+
+@app.delete("/workflows/<wf_name>/runs/<run_name>")
+def delete_wf_run(wf_name, run_name):
+    run_dir = mgr.get_wf_runs_run_dir(wf_name, run_name)
+    os.rmdir(run_dir)
+    return {}
 
 @app.route("/workflows/<wf_name>/runs/<run_name>")
 def wf_run_info(wf_name, run_name):
@@ -97,46 +128,80 @@ def wf_run_info(wf_name, run_name):
             "os": os_name,
             "status": status,
         })
+
+    status_file = mgr.get_wf_run_all_os_status_file(wf_name, run_name)
+    if not os.path.exists(status_file):
+        status = Status.PENDING.value
+    else:
+        status = open(status_file, "r").read()
     return {
         "list": res,
-        "status": open(mgr.get_wf_run_all_os_status_file(wf_name, run_name), "r").read()
+        "status": status
     }
 
 @app.route("/workflows/<wf_name>/runs/<run_name>/<os_name>")
 def wf_run_os_info(wf_name, run_name, os_name):
-    log_path = mgr.get_wf_run_single_os_dir(wf_name, run_name, os_name)
-    return {
-        **json.loads(open(mgr.get_wf_run_single_os_result_file(wf_name, run_name, os_name), "r").read()),
+    log_path = mgr.get_wf_run_single_os_result_file(wf_name, run_name, os_name)
+    if not os.path.exists(log_path):
+        print(f"[日志]: 没有 config.result.json, {log_path}")
+        return {}
+    else:
+        return {**json.loads(open(log_path, "r").read()),
     }
 
 @app.route("/workflows/<wf_name>/runs/<run_name>/<os_name>/<path:job_path>")
 def wf_run_os_job_info(wf_name, run_name, os_name, job_path):
     log_path = mgr.get_wf_run_single_os_job_dir(wf_name, run_name, os_name, job_path)
+    print("查询的日志路径", log_path)
+    logs: List[dict] = []
+    get_file_tree(log_path, "", logs)
+    logs = sorted(logs, key=lambda x: x["name"])
+
+    png_list = []
+    txt_list = []
+    for log in logs:
+        if log["name"].endswith(".png"):
+            png_list.append(log)
+        else:
+            txt_list.append(log)
+
     return {
         "pyscript": open(mgr.get_job_file(job_path), "r").read(),
-        "logs": get_file_tree(log_path, "")
+        "logs": [*txt_list, *png_list]
     }
 
-def get_file_tree(base_dir, _relative_dir):
+def get_file_tree(_base_dir, _relative_dir, logs_ref: List[dict]):
     res = []
-    full_dir = os.path.join(base_dir, _relative_dir)
-    print(base_dir)
-    print(_relative_dir)
+    full_dir = os.path.join(_base_dir, _relative_dir)
     if not os.path.exists(full_dir):
         return []
     for f in os.listdir(full_dir):
+        print(f"里面有: {f}")
+        # 绝对路径
         path = os.path.join(full_dir, _relative_dir, f)
-        relative_dir = os.path.join(_relative_dir, f)
-        final_relative_dir = os.path.join(base_dir, relative_dir)
+
+        # 相对路径
+        relative_path = os.path.join(_relative_dir, f)
+
+        linkk = str(os.path.join(_base_dir, relative_path))
+        linkk = linkk[len(str(base_dir)):]
+        link = f"{app.static_url_path}/{linkk}"
+        print(f"判断的路径 {path}, is_dir: {os.path.isdir(path)}")
         if os.path.isdir(path):
             res.append({
+                "name": f,
                 "type": "dir",
-                "path": final_relative_dir,
-                "children": get_file_tree(base_dir, relative_dir)
+                "children": get_file_tree(_base_dir, relative_path, logs_ref)
             })
         else:
             res.append({
-                "path": final_relative_dir,
+                "name": relative_path,
+                "path": link,
+                "type": "file"
+            })
+            logs_ref.append({
+                "name": relative_path,
+                "path": link,
                 "type": "file"
             })
     return res

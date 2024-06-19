@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import datetime
 import importlib
 import inspect
 import json
@@ -10,9 +11,9 @@ from typing import List
 
 import tomlkit
 
-from .job import Job, Status, update_jobs_status, work_jobs
+from .job import Job, Status, update_jobs_status, walk_jobs
 from .db import DB
-from .util import get_timestamp
+from .util import fixup_job_path, get_timestamp
 from .vm import VM
 from .worker import Workder
 
@@ -23,7 +24,7 @@ class WfRunJobConfig:
     status: Status
     children: List[WfRunJobConfig]
 
-    def __init__(self, path: str, children: list[WfRunJobConfig] = [], status = Status.EMPTY):
+    def __init__(self, path: str, children: list[WfRunJobConfig] = [], status = Status.PENDING):
         self.path = path
         self.children = children
         self.status = status
@@ -38,7 +39,7 @@ class WfRunJobConfig:
     def from_dict(config_dict: dict) -> 'WfRunJobConfig':
         path = config_dict.get("path", "")
         children = [WfRunJobConfig.from_dict(child_dict) for child_dict in config_dict.get("children", [])]
-        return WfRunJobConfig(path, children, config_dict.get("status", Status.EMPTY))
+        return WfRunJobConfig(path, children, config_dict.get("status", Status.PENDING))
 
 class WfRunConfig:
     os_list: List[str]
@@ -83,6 +84,9 @@ class Workflow:
     def get_runs_dir(self, wf_name: str) -> str:
         return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir)
 
+    def get_wf_runs_run_dir(self, wf_name: str, run_name: str) -> str:
+        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name)
+
     def get_wf_run_single_os_dir(self, wf_name: str, run_name: str, os_name: str) -> str:
         return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name)
 
@@ -92,8 +96,11 @@ class Workflow:
     def get_wf_run_single_os_result_file(self, wf_name: str, run_name: str, os_name: str) -> str:
         return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name, "config.result.json")
 
-    def get_wf_run_single_os_job_dir(self, wf_name: str, run_name: str, os_name: str, job_name: str) -> str:
-        return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, os_name, str(abs(hash(job_name))))
+    def get_wf_run_single_os_job_dir(self, wf_name: str, run_name: str, os_name: str, job_path: str, no_base_url: bool = False) -> str:
+        res = os.path.join(self._wf_dir, wf_name, self._runs_dir, run_name, os_name, fixup_job_path(job_path))
+        if not no_base_url:
+            res = os.path.join(self._base_dir, res)
+        return res
 
     def get_wf_run_all_os_status_file(self, wf_name: str, run_name: str) -> str:
         return os.path.join(self._base_dir, self._wf_dir, wf_name, self._runs_dir, run_name, "status")
@@ -142,53 +149,63 @@ class Workflow:
 
         return res
 
-    def _run_single_os(self, wf_name: str, run_name: str, os_name: str, jobs: List[WfRunJobConfig], run_dry: bool = False):
-        run_os_status = Status.EMPTY
-
-        vm = None
+    def _run_single_os(self, wf_name: str, run_name: str, os_name: str, jobs: List[WfRunJobConfig], dry: bool = False):
+        run_os_status = Status.RUNNING
 
         try:
-            print("os: ", os_name)
             domain_xml_str = open(self.get_single_os_domain_xml(os_name), "r").read()
             vm = VM(domain_xml_str)
+
+            print("操作系统启动完了, 准备运行")
             vm.start()
 
-            print("before try")
             try:
-                print("try")
                 toml_config_path = self.get_single_os_toml(os_name)
-                w = Workder(wf_name, toml_config_path, self.get_wf_run_single_os_dir(), vm, jobs)
-                print("worker new")
+                print(f"第一层 jobs 有 {len(jobs)} 个")
+                w = Workder(wf_name, toml_config_path, self.get_wf_run_single_os_dir(wf_name, run_name, os_name), vm, jobs)
 
-                if not run_dry:
-                    print("try run")
+                if not dry:
                     try:
+                        print("开始运行")
                         w.run()
                         jobs = w.jobs
-                    except:
+
+                        all_pass = False
+                        def _check_fail(job: Job) -> bool:
+                            if job.status != Status.PASS:
+                                all_pass = False
+                                return False
+                        walk_jobs(jobs, _check_fail)
+
+                        print("运行成功")
+                        run_os_status = Status.from_bool(all_pass)
+                    except Exception as e:
+                        print("worker 发出 Exception", e)
+                        run_os_status = Status.FAIL
                         pass
-                vm.stop()
-                print("try done")
+
             except Exception as e:
+                print("worker 启动失败", e)
                 run_os_status = Status.FAIL
 
+            print("停止虚拟机中")
+            vm.stop()
+
         except Exception as e:
-            print(e)
+            print("操作系统启动异常", e)
             run_os_status = Status.FAIL
 
-
+        print("保存测试状态", run_os_status.value)
         self.save_run_single_os(wf_name, run_name, os_name, jobs, run_os_status)
 
 
     def _run_all_os(self, wf_name: str, run_name: str, os_list: List[str], jobs: List[Job], run_dry: bool = False):
-        # run all
+        self.save_run_all_os(wf_name, run_name, Status.RUNNING)
+
         for os_name in os_list:
+            self.save_run_single_os(wf_name, run_name, os_name, jobs, Status.RUNNING)
 
-            # create run_os_dir
-            run_os_dir = self.get_wf_run_single_os_dir(wf_name, run_name, os_name)
-            if not os.path.exists(run_os_dir):
-                os.makedirs(run_os_dir)
-
+            print(f"正在运行工作流: {wf_name}, 操作系统: {os_name}")
             self._run_single_os(wf_name, run_name, os_name, jobs, run_dry)
 
         # save last_result
@@ -209,9 +226,23 @@ class Workflow:
 
     def run(self, wf_name: str, run_dry: bool = False):
         c = self.get_wf_config(wf_name)
-
-        run_name = str(get_timestamp())
+        formatted_now = datetime.datetime.now().strftime("run_%y_%m_%d_%H_%M_%S")
+        print(f"运行工作流: {wf_name}, run: {formatted_now}")
+        run_name = str(formatted_now)
         jobs = self._lode_job_tree_with_func(c.jobs)
+
+        # set initial status
+        os.makedirs(self.get_wf_runs_run_dir(wf_name, run_name))
+        self.save_run_all_os(wf_name, run_name, Status.PENDING)
+
+        for os_name in c.os_list:
+            # create run_os_dir
+            run_os_dir = self.get_wf_run_single_os_dir(wf_name, run_name, os_name)
+            if not os.path.exists(run_os_dir):
+                os.makedirs(run_os_dir)
+
+            self.save_run_single_os(wf_name, run_name, os_name, jobs, Status.PENDING)
+
         self._run_all_os(wf_name, run_name, c.os_list, jobs, False)
 
     def run_failed(self, wf_name: str, os_name:str, run_name: str):
