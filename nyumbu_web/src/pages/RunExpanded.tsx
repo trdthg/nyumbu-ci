@@ -14,12 +14,13 @@ import TreeView from '@carbon/react/lib/components/TreeView/TreeView';
 // @ts-ignore
 import TreeNode from '@carbon/react/lib/components/TreeView/TreeNode';
 import {
+    WorkflowJob,
     useWorkflowRunSingleOSLogs,
     useWorkflowRunSingleOSResultConfig,
 } from '../api';
 import { useParams } from 'react-router-dom';
 import style from './workflow.module.scss';
-import { useState } from 'react';
+import { ReactElement, useState } from 'react';
 import StaticResources from './StaticResources';
 
 function RunLog(props: {
@@ -75,6 +76,19 @@ export default function RunExpanded() {
 
     const [selectPath, setSelectPath] = useState<string>();
 
+    const renderTree = (node: WorkflowJob): ReactElement => {
+        return (
+            <TreeNode
+                key={node.path}
+                label={node.path}
+                onClick={() => setSelectPath(node.path)}
+                renderIcon={statusIcon(node.status)}
+            >
+                {node.children.map((job) => renderTree(job))}
+            </TreeNode>
+        );
+    };
+
     return (
         <>
             <Column sm={4} md={4} lg={5}>
@@ -83,14 +97,9 @@ export default function RunExpanded() {
                         <Section>
                             <Heading className={style.TileHeader}>Jobs</Heading>
                             <TreeView label="">
-                                {(run.data?.jobs ?? []).map((job, i) => (
-                                    <TreeNode
-                                        key={i}
-                                        label={job.path ?? 'untitled job'}
-                                        renderIcon={statusIcon(job.status)}
-                                        onClick={() => setSelectPath(job.path!)}
-                                    />
-                                ))}
+                                {(run.data?.jobs ?? []).map((job, i) =>
+                                    renderTree(job),
+                                )}
                             </TreeView>
                         </Section>
                     </Tile>
