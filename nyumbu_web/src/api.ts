@@ -23,7 +23,6 @@ export const useFetch = <T>(
     );
 
     useEffect(() => {
-        console.log(reloadKey);
         setIsLoading(true);
         const fetchData = async () => {
             try {
@@ -130,7 +129,7 @@ export const useWorkflowRuns = (
         setUrl(`${baseUrl}/workflows/${wf_name}/runs`);
         setReloadKey(reloadKey + 1);
     }, [wf_name]);
-    return useFetch(url, undefined, reloadKey);
+    return useFetch(url, {}, reloadKey);
 };
 
 export const useWorkflowRunAllResult = (

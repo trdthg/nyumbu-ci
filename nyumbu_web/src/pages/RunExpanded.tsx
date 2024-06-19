@@ -2,9 +2,11 @@ import {
     Column,
     Layer,
     Section,
-    Heading, Tile,
-    CodeSnippet, Accordion,
-    AccordionItem
+    Heading,
+    Tile,
+    CodeSnippet,
+    Accordion,
+    AccordionItem,
 } from '@carbon/react';
 import { ThumbsUp, ThumbsDown, Fade } from '@carbon/icons-react';
 // @ts-ignore
@@ -47,11 +49,10 @@ function RunLog(props: {
                     key={i}
                     title={log.name}
                     className={style.FullWidth}
+                    open
                 >
                     <Layer level={1}>
-                        <CodeSnippet type="multi">
-                            <StaticResources url={log.path} />
-                        </CodeSnippet>
+                        <StaticResources url={log.path} />
                     </Layer>
                 </AccordionItem>
             ))}
@@ -93,7 +94,10 @@ export default function RunExpanded() {
             {selectPath && (
                 <Column sm={4} md={8} lg={10}>
                     <Layer>
-                        <Tile className={style.Tile}>
+                        <Tile
+                            className={style.Tile}
+                            style={{ maxHeight: 'unset' }}
+                        >
                             <Section>
                                 <Heading className={style.TileHeader}>
                                     Logs
@@ -116,7 +120,7 @@ export default function RunExpanded() {
 }
 
 function SuccessIcon() {
-    return <ThumbsUp fill="green" style={{marginRight: "0.75rem"}} />;
+    return <ThumbsUp fill="green" style={{ marginRight: '0.75rem' }} />;
 }
 
 function FailureIcon() {

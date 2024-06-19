@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { baseUrl } from '../api';
+import { CodeSnippet } from '@carbon/react';
 
 export default function StaticResources(props: { url: string }) {
     const [resource, setResource] = useState<string>();
@@ -14,5 +15,9 @@ export default function StaticResources(props: { url: string }) {
             .then((text) => setResource(text));
     }, [props.url]);
 
-    return img ? <img src={`${baseUrl}/${props.url}`} /> : <>{resource}</>;
+    return img ? (
+        <img src={`${baseUrl}/${props.url}`} />
+    ) : (
+        <CodeSnippet>{resource}</CodeSnippet>
+    );
 }

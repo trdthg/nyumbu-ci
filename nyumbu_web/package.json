@@ -17,7 +17,8 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.23.1",
     "sass": "1.63.6",
-    "styled-components": "^6.1.11"
+    "styled-components": "^6.1.11",
+    "swr": "^2.2.5"
   },
   "devDependencies": {
     "@types/react": "^18.0.26",

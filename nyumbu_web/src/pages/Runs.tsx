@@ -1,19 +1,25 @@
-import { ContainedListItem } from '@carbon/react';
+import { Button, ContainedListItem } from '@carbon/react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useWorkflowRuns, RunResult } from '../api';
-import { ThumbsUp, ThumbsDown, Fade } from '@carbon/icons-react';
+import { useWorkflowRuns, RunResult, baseUrl } from '../api';
+import {
+    CheckmarkOutline,
+    ErrorOutline,
+    Pending,
+    TrashCan,
+} from '@carbon/icons-react';
 import style from './workflow.module.scss';
+import { useEffect, useRef } from 'react';
 
 function SuccessIcon() {
-    return <ThumbsUp fill="green" />;
+    return <CheckmarkOutline fill="green" />;
 }
 
 function FailureIcon() {
-    return <ThumbsDown fill="red" />;
+    return <ErrorOutline fill="red" />;
 }
 
 function PendingIcon() {
-    return <Fade fill="blue" />;
+    return <Pending fill="gray" />;
 }
 
 export const statusIcon = (result: string): React.ComponentType<{}> => {
@@ -32,6 +38,12 @@ export default function RunsList() {
     const params = useParams<{ name: string; run: string }>();
     const workflows = useWorkflowRuns(params.name!);
 
+    const removeRunEntry = (workflow: string, run: string) => {
+        fetch(`${baseUrl}/workflows/${workflow}/runs/${run}`, {
+            method: 'DELETE',
+        });
+    };
+
     return (
         <>
             {(workflows.data?.list ?? []).map((wf, i) => (
@@ -42,6 +54,18 @@ export default function RunsList() {
                     }}
                     className={params.run === wf.run_name ? style.Active : ''}
                     renderIcon={statusIcon(wf.status)}
+                    action={
+                        <Button
+                            hasIconOnly
+                            iconDescription="Remove"
+                            kind="danger"
+                            renderIcon={TrashCan}
+                            tooltipPosition="left"
+                            onClick={() =>
+                                removeRunEntry(params.name!, wf.run_name)
+                            }
+                        />
+                    }
                 >
                     {wf.run_name}
                 </ContainedListItem>
