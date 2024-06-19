@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@carbon/icons": "^11.43.0",
     "@carbon/react": "^1.59.0",
     "@carbon/type": "^11.27.0",
     "@primer/react": "^36.19.1",

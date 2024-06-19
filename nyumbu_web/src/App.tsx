@@ -12,10 +12,10 @@ const router = createHashRouter([
                 path: '/workflow/:name',
                 children: [
                     {
-                        path: '/workflow/:name/:os',
+                        path: '/workflow/:name/:run',
                         children: [
                             {
-                                path: '/workflow/:name/:os/:run',
+                                path: '/workflow/:name/:run/:os',
                             },
                         ],
                     },

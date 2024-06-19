@@ -6,15 +6,24 @@
     background-color: colors.$gray-20;
 }
 
-.EnvironmentColumn {
+.RunsColumn {
     background-color: colors.$gray-10;
 }
 
 .Column {
-    /* applies styles inside mixin on md breakpoint or below, like max-width */
-      @include breakpoint.breakpoint-up('lg') {
-    height: 100vh;
-      }
+    max-height: 40vh;
+    @include breakpoint.breakpoint-up('lg') {
+        height: 100vh;
+        max-height: unset;
+    }
+    overflow: scroll;
+}
+
+.ExpandedColumn {
+    @include breakpoint.breakpoint-up('lg') {
+        height: 100vh;
+    }
+    overflow: scroll;
 }
 
 .RunInfo {
@@ -23,10 +32,47 @@
     color: colors.$white;
 }
 
+.Padding {
+    margin: layout.$spacing-03;
+}
 .Padding > div {
-    padding: layout.$spacing-01;
+    margin: layout.$spacing-03;
 }
 
 .Active {
     background-color: colors.$white;
-}   
+    outline: solid 2px colors.$blue-70;
+    outline-offset: -3px;
+    overflow: hidden;
+}
+
+.RunsList {
+    background-color: transparent;
+}
+
+.RunsHeader {
+    display: block;
+    line-height: 48px;
+}
+
+.FullWidth div {
+    padding-inline-end: unset;
+}
+
+.Tile {
+    padding-left: 0;
+    padding-right: 0;
+    min-height: layout.$layout-07;
+    max-height: 50rem;
+}
+
+.TileHeader {
+    display: block;
+    margin-left: layout.$spacing-05;
+    line-height: 48px;
+}
+
+.SelectRunPlaceholder {
+    margin: layout.$container-05 auto 0 auto;
+    color: colors.$gray-60;
+}

@@ -2,37 +2,44 @@ import {
     Grid,
     Column,
     Button,
-    Layer, ContainedList,
+    Layer,
+    ContainedList,
     ContainedListItem,
     Heading,
-    Tile
+    Tile,
+    VStack,
 } from '@carbon/react';
+import { Renew } from '@carbon/icons-react';
 import { Spinner } from '@primer/react';
 import { useWorkflowList } from '../api';
 import style from './workflow.module.scss';
 import EnvironmentList from './Environment';
-import Run from './Run';
+import Run from './RunStatus';
 import WorkflowList from './WorkflowList';
-
+import { useParams } from 'react-router-dom';
+import RunsList from './Runs';
 
 export default function WorkflowListPage() {
     const workflows = useWorkflowList();
+    const params = useParams<{ name: string; os: string; run: string }>();
 
     return (
         <Grid condensed fullWidth style={{ padding: 0 }}>
-            <Column sm={4} md={4} lg={4} className={style.WorkflowColumn}>
+            <Column sm={4} md={4} lg={2} className={style.WorkflowColumn}>
                 <Layer>
                     <ContainedList
                         label="Workflows"
                         className={style.Column}
                         action={
                             <Button
+                                hasIconOnly
+                                iconDescription="Refresh"
+                                renderIcon={Renew}
+                                tooltipPosition="left"
                                 onClick={() => {
                                     workflows.reload();
                                 }}
-                            >
-                                Refresh
-                            </Button>
+                            />
                         }
                     >
                         {workflows.loading ? (
@@ -49,19 +56,24 @@ export default function WorkflowListPage() {
                     </ContainedList>
                 </Layer>
             </Column>
-            <Column sm={4} md={4} lg={4} className={style.EnvironmentColumn}>
+            <Column sm={4} md={4} lg={4} className={style.RunsColumn}>
                 <Layer>
-                    <ContainedList
-                        label="Environments"
-                        className={style.Column}
-                    >
-                        <EnvironmentList />
+                    <ContainedList label="Runs" className={style.Column}>
+                        {params.name && <RunsList />}
                     </ContainedList>
                 </Layer>
             </Column>
-            <Column sm={4} md={8} lg={8}>
+            <Column sm={4} md={8} lg={10} className={style.ExpandedColumn}>
                 <Layer>
-                    <Run />
+                    <VStack>
+                    {params.run ? (
+                        <Run />
+                    ) : (
+                        <Heading className={style.SelectRunPlaceholder}>
+                            Select a run to view details
+                        </Heading>
+                    )}
+                    </VStack>
                 </Layer>
             </Column>
         </Grid>

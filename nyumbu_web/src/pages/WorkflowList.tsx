@@ -2,7 +2,6 @@ import { ContainedListItem } from '@carbon/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useWorkflowList } from '../api';
 import style from './workflow.module.scss';
-import { useEffect } from 'react';
 
 export default function WorkflowList() {
     const nav = useNavigate();
