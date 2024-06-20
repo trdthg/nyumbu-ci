@@ -4,21 +4,7 @@ import json
 from typing import Callable, List
 import pyautotest
 
-
-class Status(Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    PASS = "pass"
-    FAIL = "fail"
-    SKIP = "skip"
-    CANCEL = "cancel"
-
-    @staticmethod
-    def from_bool(v: bool) -> 'Status':
-        if v:
-            return Status.PASS
-        else:
-            return Status.FAIL
+from .config import WfRunConfig, WfRunJobConfig, Status
 
 class Job:
     path: str
@@ -30,6 +16,10 @@ class Job:
     def to_dict(self) -> str:
         res = {"path": self.path, "status": self.status.value, "children": []}
         return res
+
+    def to_config(self) -> WfRunJobConfig:
+        return WfRunJobConfig(self.path, [child.to_config() for child in self.children], self.status)
+
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
 
@@ -46,6 +36,14 @@ def walk_jobs(jobs: List[Job], f: Callable[[Job], bool]):
         if f(job):
             walk_jobs(job.children, f)
 
+def count_jobs(jobs: List[Job]) -> int:
+    count = 0
+    def _count_jobs(job: Job) -> bool:
+        nonlocal count
+        count += 1
+        return True
+    walk_jobs(jobs, _count_jobs)
+    return count
 
 def update_jobs_status(jobs: List[Job], results: dict[str, Status]):
 

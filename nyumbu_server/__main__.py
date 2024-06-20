@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 import threading
@@ -111,7 +112,7 @@ def wf_runs(wf_name):
 @app.delete("/workflows/<wf_name>/runs/<run_name>")
 def delete_wf_run(wf_name, run_name):
     run_dir = mgr.get_wf_runs_run_dir(wf_name, run_name)
-    os.rmdir(run_dir)
+    shutil.rmtree(run_dir)
     return {}
 
 @app.route("/workflows/<wf_name>/runs/<run_name>")

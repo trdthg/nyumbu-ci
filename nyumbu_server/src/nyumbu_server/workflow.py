@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import datetime
 import importlib
 import inspect
@@ -11,7 +10,8 @@ from typing import List
 
 import tomlkit
 
-from .job import Job, Status, update_jobs_status, walk_jobs
+from .config import WfRunConfig, WfRunJobConfig
+from .job import Job, Status, count_jobs, update_jobs_status, walk_jobs
 from .db import DB
 from .util import fixup_job_path, get_timestamp
 from .vm import VM
@@ -19,46 +19,6 @@ from .worker import Workder
 
 import pyautotest
 
-class WfRunJobConfig:
-    path: str
-    status: Status
-    children: List[WfRunJobConfig]
-
-    def __init__(self, path: str, children: list[WfRunJobConfig] = [], status = Status.PENDING):
-        self.path = path
-        self.children = children
-        self.status = status
-
-    def to_dict(self) -> dict:
-        return {
-            "path": self.path,
-            "status": self.status.value,
-            "children": [child.to_dict() for child in self.children]
-        }
-
-    def from_dict(config_dict: dict) -> 'WfRunJobConfig':
-        path = config_dict.get("path", "")
-        children = [WfRunJobConfig.from_dict(child_dict) for child_dict in config_dict.get("children", [])]
-        return WfRunJobConfig(path, children, config_dict.get("status", Status.PENDING))
-
-class WfRunConfig:
-    os_list: List[str]
-    jobs: List[WfRunJobConfig]
-
-    def __init__(self, os_list: List[str] = [], jobs: List[WfRunJobConfig] = []):
-        self.os_list = os_list
-        self.jobs = jobs
-
-    @staticmethod
-    def from_json(json_str: str) -> 'WfRunConfig':
-        config_dict: dict = json.loads(json_str)
-        return WfRunConfig(os_list = config_dict.get("os_list", []), jobs= [WfRunJobConfig.from_dict(job_dict) for job_dict in config_dict.get("jobs", [])])
-
-    def to_dict(self) -> dict:
-        return {
-            "os_list": self.os_list,
-            "jobs": [job.to_dict() for job in self.jobs]
-        }
 
 class Workflow:
     _os_dir = "os"
@@ -161,7 +121,10 @@ class Workflow:
 
             try:
                 toml_config_path = self.get_single_os_toml(os_name)
-                print(f"第一层 jobs 有 {len(jobs)} 个")
+
+                print(f"共有 jobs {count_jobs(jobs)} 个")
+
+                # FIXME
                 w = Workder(wf_name, toml_config_path, self.get_wf_run_single_os_dir(wf_name, run_name, os_name), vm, jobs)
 
                 if not dry:
@@ -170,8 +133,9 @@ class Workflow:
                         w.run()
                         jobs = w.jobs
 
-                        all_pass = False
+                        all_pass = True
                         def _check_fail(job: Job) -> bool:
+                            nonlocal all_pass
                             if job.status != Status.PASS:
                                 all_pass = False
                                 return False
@@ -252,7 +216,10 @@ class Workflow:
 
     def save_run_single_os(self, wf_name: str, run_name: str, os_name: str, jobs: List[Job], status: Status):
         run_os_result_file = self.get_wf_run_single_os_result_file(wf_name, run_name, os_name)
-        c = WfRunConfig([os_name], jobs)
+        c = WfRunConfig([os_name], [job.to_config() for job in jobs])
+
+        print(f"共有 jobs {count_jobs(jobs)} 个")
+        print(json.dumps(c.to_dict()))
         open(run_os_result_file, "w").write(json.dumps(c.to_dict()))
 
         run_os_status_file = self.get_wf_run_single_os_status_file(wf_name, run_name, os_name)
