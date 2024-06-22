@@ -45,8 +45,14 @@ def count_jobs(jobs: List[Job]) -> int:
     walk_jobs(jobs, _count_jobs)
     return count
 
-def update_jobs_status(jobs: List[Job], results: dict[str, Status]):
+def update_jobs_status(jobs: List[Job], status: Status):
+    def _set_status(job: Job):
+        job.status = status
+        return True
 
+    walk_jobs(jobs, _set_status)
+
+def update_jobs_status_by_map(jobs: List[Job], results: dict[str, Status]):
     def _set_status(job: Job):
         if results.get(job.path) is not None:
             status = Status(results.get(job.path))

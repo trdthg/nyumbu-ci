@@ -11,7 +11,7 @@ from typing import List
 import tomlkit
 
 from .config import WfRunConfig, WfRunJobConfig
-from .job import Job, Status, count_jobs, update_jobs_status, walk_jobs
+from .job import Job, Status, count_jobs, update_jobs_status_by_map, walk_jobs
 from .db import DB
 from .util import fixup_job_path, get_timestamp
 from .vm import VM
@@ -213,6 +213,10 @@ class Workflow:
         c = WfRunConfig.from_json(open(self.get_wf_run_single_os_result_file(wf_name, os_name, run_name), "r").read())
         jobs = self._lode_job_tree_with_func(c.jobs)
         self._run_all_os(wf_name, run_name, c.os_list, jobs, True)
+
+    def save_run_single_os_status(self, wf_name: str, run_name: str, os_name: str, status: Status):
+        # TODO
+        pass
 
     def save_run_single_os(self, wf_name: str, run_name: str, os_name: str, jobs: List[Job], status: Status):
         run_os_result_file = self.get_wf_run_single_os_result_file(wf_name, run_name, os_name)

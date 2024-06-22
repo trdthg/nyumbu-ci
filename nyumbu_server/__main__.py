@@ -209,8 +209,8 @@ def get_file_tree(_base_dir, _relative_dir, logs_ref: List[dict]):
 
 @app.route("/workflows/<wf_name>/run")
 def wf_run(wf_name):
-    mgr.run(wf_name)
-    # threading.Thread(target=mgr.run, args=(wf_name)).start()
+    thread = threading.Thread(target=mgr.run, args=(wf_name, False))
+    thread.start()
     return {  }
 
 app.run(host="0.0.0.0", port=5000, debug=True)

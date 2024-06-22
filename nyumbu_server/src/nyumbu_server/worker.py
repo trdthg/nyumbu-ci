@@ -5,7 +5,7 @@ import time
 from typing import List
 
 import tomlkit
-from .job import Job, Status, walk_jobs
+from .job import Job, Status, walk_jobs, update_jobs_status
 from .vm import VM
 from .util import fixup_job_path
 
@@ -68,7 +68,8 @@ class Workder:
         pass
 
     def _run(self, base_snapname: str, jobs: List[Job], _indexs: List[int]):
-        for i, job in enumerate(jobs):
+        for i in range(len(jobs)):
+            job: Job = jobs[i]
             indexs = copy.deepcopy(_indexs)
             indexs.append(i + 1)
             indexs_str = ".".join(map(lambda x: str(x), indexs))
@@ -128,6 +129,9 @@ class Workder:
                         except Exception as e:
                             print("子任务运行抛出异常", e)
                             pass
+                    else:
+                        print("剩下的设置为 SKIP")
+                        update_jobs_status(job.children, Status.SKIP)
 
                 else:
                     print("pass(skip)")
