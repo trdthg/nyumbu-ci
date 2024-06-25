@@ -15,6 +15,8 @@ class VM:
         self.vm_name = self.domain_xml.find("name").text
         self.domain_xml_str = domain_xml_str
 
+        self.init_network()
+
     def init_network(self):
         # start default network if not active
         network_name = "default"
