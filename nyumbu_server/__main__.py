@@ -8,16 +8,17 @@ from typing import List
 from flask import Flask, jsonify
 from flask_cors import CORS
 from src.nyumbu_server.job import Status
-from src.nyumbu_server.workflow import WfRunConfig, Workflow, WfRunJobConfig
+from src.nyumbu_server.workflow import WfRunConfig, FS, Manager, WfRunJobConfig
 
 base_dir = Path(os.environ.get("BASE_DIR", "nyumbu_workspace"))
 
 app = Flask(__name__, static_folder=base_dir, static_url_path="/static")
 CORS(app)
 
-mgr = Workflow(base_dir = base_dir)
+fs = FS(base_dir = base_dir)
+mgr = Manager(fs)
 
-sys.path.append(str(Path(mgr._base_dir).resolve().absolute()))
+sys.path.append(str(Path(fs._base_dir).resolve().absolute()))
 
 # - job
 #   - test1.py
@@ -55,9 +56,9 @@ sys.path.append(str(Path(mgr._base_dir).resolve().absolute()))
 @app.route("/workflows")
 def wf_list():
     res = []
-    list_dir = os.listdir(mgr.get_wf_dir())
+    list_dir = os.listdir(fs.get_wf_dir())
     for path in list_dir:
-        if os.path.isdir(os.path.join(mgr.get_wf_dir(), path)):
+        if os.path.isdir(os.path.join(fs.get_wf_dir(), path)):
             res.append(path)
     return {
         "list": res
@@ -65,9 +66,9 @@ def wf_list():
 
 @app.route("/workflows/<wf_name>")
 def wf_info(wf_name):
-    config_file_path = mgr.get_wf_config_file(wf_name)
+    config_file_path = fs.get_wf_config_file(wf_name)
     if os.path.exists(config_file_path):
-        config_str = open(mgr.get_wf_config_file(wf_name), "r").read()
+        config_str = open(fs.get_wf_config_file(wf_name), "r").read()
         print(config_str)
         c = WfRunConfig.from_json(config_str)
         return {
@@ -85,7 +86,7 @@ def wf_info(wf_name):
 @app.route("/workflows/<wf_name>/runs")
 def wf_runs(wf_name):
     res = []
-    runs_dir = mgr.get_runs_dir(wf_name)
+    runs_dir = fs.get_runs_dir(wf_name)
     if os.path.exists(runs_dir):
       runs_list = os.listdir(runs_dir)
       runs_list.sort(reverse=True)
@@ -95,7 +96,7 @@ def wf_runs(wf_name):
     for run_name in runs_list:
         status = Status.PENDING.value
         try:
-            status_file = mgr.get_wf_run_all_os_status_file(wf_name, run_name)
+            status_file = fs.get_wf_run_all_os_status_file(wf_name, run_name)
             status = open(status_file, "r").read()
         except:
             pass
@@ -111,16 +112,16 @@ def wf_runs(wf_name):
 
 @app.delete("/workflows/<wf_name>/runs/<run_name>")
 def delete_wf_run(wf_name, run_name):
-    run_dir = mgr.get_wf_runs_run_dir(wf_name, run_name)
+    run_dir = fs.get_wf_runs_run_dir(wf_name, run_name)
     shutil.rmtree(run_dir)
     return {}
 
 @app.route("/workflows/<wf_name>/runs/<run_name>")
 def wf_run_info(wf_name, run_name):
-    c = mgr.get_wf_config(wf_name)
+    c = fs.get_wf_config(wf_name)
     res = []
     for os_name in c.os_list:
-        status_file = mgr.get_wf_run_single_os_status_file(wf_name, run_name, os_name)
+        status_file = fs.get_wf_run_single_os_status_file(wf_name, run_name, os_name)
         try:
             status = open(status_file, "r").read()
         except:
@@ -130,7 +131,7 @@ def wf_run_info(wf_name, run_name):
             "status": status,
         })
 
-    status_file = mgr.get_wf_run_all_os_status_file(wf_name, run_name)
+    status_file = fs.get_wf_run_all_os_status_file(wf_name, run_name)
     if not os.path.exists(status_file):
         status = Status.PENDING.value
     else:
@@ -142,7 +143,7 @@ def wf_run_info(wf_name, run_name):
 
 @app.route("/workflows/<wf_name>/runs/<run_name>/<os_name>")
 def wf_run_os_info(wf_name, run_name, os_name):
-    log_path = mgr.get_wf_run_single_os_result_file(wf_name, run_name, os_name)
+    log_path = fs.get_wf_run_single_os_result_file(wf_name, run_name, os_name)
     if not os.path.exists(log_path):
         print(f"[日志]: 没有 config.result.json, {log_path}")
         return {}
@@ -152,9 +153,9 @@ def wf_run_os_info(wf_name, run_name, os_name):
 
 @app.route("/workflows/<wf_name>/runs/<run_name>/<os_name>/<path:job_path>")
 def wf_run_os_job_info(wf_name, run_name, os_name, job_path):
-    log_path = mgr.get_wf_run_single_os_job_dir(wf_name, run_name, os_name, job_path)
+    log_path = fs.get_wf_run_single_os_job_dir(wf_name, run_name, os_name, job_path)
     print("查询的日志路径", log_path)
-    logs: List[dict] = []
+    logs: List[dict[str, str]] = []
     get_file_tree(log_path, "", logs)
     logs = sorted(logs, key=lambda x: x["name"])
 
@@ -167,7 +168,7 @@ def wf_run_os_job_info(wf_name, run_name, os_name, job_path):
             txt_list.append(log)
 
     return {
-        "pyscript": open(mgr.get_job_file(job_path), "r").read(),
+        "pyscript": open(fs.get_job_file(job_path), "r").read(),
         "logs": [*txt_list, *png_list]
     }
 
@@ -209,8 +210,7 @@ def get_file_tree(_base_dir, _relative_dir, logs_ref: List[dict]):
 
 @app.route("/workflows/<wf_name>/run")
 def wf_run(wf_name):
-    thread = threading.Thread(target=mgr.run, args=(wf_name, False))
-    thread.start()
+    mgr.spawn_run(wf_name, False)
     return {  }
 
-app.run(host="0.0.0.0", port=5000, debug=True)
+app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)
